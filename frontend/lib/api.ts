@@ -1,67 +1,38 @@
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+const stripTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 
-const resolveBackendApiUrl = (): string => {
-  const configured = process.env.EXPO_PUBLIC_BACKEND_API_URL;
-  if (configured && configured.trim().length > 0) {
-    return configured.trim();
+const getWindowHost = (): string => {
+  if (typeof window === 'undefined') {
+    return '';
   }
 
-  const hostUri =
-    (Constants as any)?.expoConfig?.hostUri ||
-    (Constants as any)?.manifest2?.extra?.expoClient?.hostUri ||
-    (Constants as any)?.manifest?.debuggerHost ||
-    '';
-  const host = typeof hostUri === 'string' ? hostUri.split(':')[0] : '';
-
-  if (host && host !== 'localhost' && host !== '127.0.0.1') {
-    return `http://${host}:8000`;
+  const hostname = window.location.hostname;
+  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
+    return '';
   }
 
-  if (Platform.OS === 'android') {
-    // Android emulator cannot reach host localhost directly.
-    return 'https://greenchain-qfwf.onrender.com';
-  }
-
-  return 'http://localhost:8000';
+  return `http://${hostname}:8000`;
 };
 
 const buildApiCandidates = (): string[] => {
-  const configured = process.env.EXPO_PUBLIC_BACKEND_API_URL?.trim();
   const candidates: string[] = [];
   const add = (url?: string) => {
     if (!url) return;
-    const normalized = url.replace(/\/+$/, '');
+    const normalized = stripTrailingSlash(url);
     if (!candidates.includes(normalized)) {
       candidates.push(normalized);
     }
   };
 
-  add(configured);
-
-  const hostUri =
-    (Constants as any)?.expoConfig?.hostUri ||
-    (Constants as any)?.manifest2?.extra?.expoClient?.hostUri ||
-    (Constants as any)?.manifest?.debuggerHost ||
-    '';
-  const host = typeof hostUri === 'string' ? hostUri.split(':')[0] : '';
-  if (host && host !== 'localhost' && host !== '127.0.0.1') {
-    add(`http://${host}:8000`);
-  }
-
-  if (Platform.OS === 'android') {
-    add('http://10.0.2.2:8000');
-    add('http://127.0.0.1:8000');
-    add('http://localhost:8000');
-  } else {
-    add('http://localhost:8000');
-    add('http://127.0.0.1:8000');
-  }
+  add(import.meta.env.VITE_BACKEND_API_URL?.trim());
+  add(getWindowHost());
+  add('http://localhost:8000');
+  add('http://127.0.0.1:8000');
+  add('https://greenchain-qfwf.onrender.com');
 
   return candidates;
 };
 
-const BACKEND_API_URL = resolveBackendApiUrl();
+const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL?.trim() || 'http://localhost:8000';
 
 interface ApiResponse<T> {
   data?: T;
@@ -74,13 +45,13 @@ class ApiService {
   private readonly baseCandidates: string[];
 
   constructor(baseUrl: string = BACKEND_API_URL) {
-    this.baseUrl = baseUrl;
+    this.baseUrl = stripTrailingSlash(baseUrl);
     this.baseCandidates = buildApiCandidates();
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    let lastError: any;
-    const candidates = [this.baseUrl, ...this.baseCandidates.filter(c => c !== this.baseUrl)];
+    let lastError: unknown;
+    const candidates = [this.baseUrl, ...this.baseCandidates.filter(candidate => candidate !== this.baseUrl)];
 
     for (const base of candidates) {
       try {
@@ -88,7 +59,7 @@ class ApiService {
         const response = await fetch(url, {
           headers: {
             'Content-Type': 'application/json',
-            ...options.headers,
+            ...(options.headers || {}),
           },
           ...options,
         });
@@ -101,19 +72,20 @@ class ApiService {
           throw new Error(detail);
         }
 
-        // Persist the working host so subsequent calls don't retry.
         this.baseUrl = base;
         return { data: parsed, success: true };
-      } catch (error: any) {
+      } catch (error) {
         lastError = error;
       }
     }
 
     console.error(`API request failed: ${endpoint}`, lastError, { baseCandidates: candidates });
-    return { error: lastError?.message || 'Network error', success: false };
+    return {
+      error: lastError instanceof Error ? lastError.message : 'Network error',
+      success: false,
+    };
   }
 
-  // Shipments API
   async getShipments(): Promise<ApiResponse<any[]>> {
     return this.request('/shipments');
   }
@@ -129,7 +101,6 @@ class ApiService {
     });
   }
 
-  // Emissions API
   async getEmissions(): Promise<ApiResponse<any[]>> {
     return this.request('/emissions');
   }
@@ -138,7 +109,6 @@ class ApiService {
     return this.request(`/emissions/${shipmentId}`);
   }
 
-  // Alerts API
   async getAlerts(): Promise<ApiResponse<any[]>> {
     return this.request('/alerts');
   }
@@ -150,17 +120,14 @@ class ApiService {
     });
   }
 
-  // Analytics API
   async getAnalytics(): Promise<ApiResponse<any>> {
     return this.request('/analytics/fleet-overview');
   }
 
-  // Green Score API
   async getGreenScore(): Promise<ApiResponse<any>> {
     return this.request('/green-score/fleet');
   }
 
-  // AI Insights API
   async getAIInsights(query: string): Promise<ApiResponse<any>> {
     return this.request('/ai/ask', {
       method: 'POST',
@@ -168,17 +135,14 @@ class ApiService {
     });
   }
 
-  // Reports API
   async getReports(): Promise<ApiResponse<any>> {
     return this.request('/reports/fleet-summary');
   }
 
-  // Route Alternatives API
   async getRouteAlternatives(shipmentId: string): Promise<ApiResponse<any[]>> {
     return this.request(`/shipments/${shipmentId}/route-alternatives`);
   }
 
-  // ML Insights API
   async predictCO2(data: any): Promise<ApiResponse<any>> {
     return this.request('/api/ml/predict-co2', {
       method: 'POST',

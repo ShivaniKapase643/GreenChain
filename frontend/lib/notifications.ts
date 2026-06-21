@@ -1,17 +1,3 @@
-import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-
-// Configure how notifications are presented when the app is in the foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
-
 export interface AlertNotificationPayload {
   id: string;
   shipment_id: string;
@@ -20,152 +6,107 @@ export interface AlertNotificationPayload {
   message: string;
 }
 
-const SEVERITY_EMOJI: Record<string, string> = {
-  critical: '🚨',
-  high: '🔴',
-  medium: '🟡',
-  low: '🟢',
+type NotificationShape = {
+  request: {
+    content: {
+      data: Record<string, unknown>;
+    };
+  };
 };
 
-const SEVERITY_TITLE: Record<string, string> = {
-  critical: 'Critical Alert',
-  high: 'High Severity Alert',
-  medium: 'Warning',
-  low: 'Info',
-};
+type Listener = (notification: NotificationShape) => void;
 
-const ALERT_TYPE_LABEL: Record<string, string> = {
-  emission_spike: 'Emission Spike',
-  harsh_braking: 'Harsh Braking',
-  idle_alert: 'Idle Alert',
-  delay_risk: 'Delay Risk',
-  route_suggestion: 'Route Suggestion',
-};
+const createNotificationPayload = (data: Record<string, unknown>): NotificationShape => ({
+  request: {
+    content: {
+      data,
+    },
+  },
+});
 
 class NotificationService {
-  private _channelCreated = false;
+  private listeners = new Set<Listener>();
 
-  /**
-   * Ensure the Android notification channel exists once.
-   */
-  private async _ensureAndroidChannel(): Promise<void> {
-    if (this._channelCreated || Platform.OS !== 'android') return;
-    await Notifications.setNotificationChannelAsync('greenchain-alerts', {
-      name: 'GreenChain Alerts',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#10b981',
-      sound: 'default',
-    });
-    this._channelCreated = true;
-  }
-
-  /**
-   * Request permission to send notifications.
-   * Returns true if granted.
-   */
   async requestPermissions(): Promise<boolean> {
-    try {
-      await this._ensureAndroidChannel();
-      const { status } = await Notifications.requestPermissionsAsync();
-      return status === 'granted';
-    } catch (error) {
-      console.warn('[Notifications] Permission request failed:', error);
+    if (typeof window === 'undefined' || !('Notification' in window)) {
       return false;
     }
-  }
 
-  /**
-   * Fire an immediate local notification for an alert.
-   * Works in both Expo Go and dev builds.
-   */
-  async sendAlertNotification(alert: AlertNotificationPayload): Promise<string> {
-    try {
-      await this._ensureAndroidChannel();
-
-      const emoji = SEVERITY_EMOJI[alert.severity] ?? '⚠️';
-      const severityLabel = SEVERITY_TITLE[alert.severity] ?? 'Alert';
-      const typeLabel = ALERT_TYPE_LABEL[alert.alert_type] ?? alert.alert_type.replace(/_/g, ' ');
-
-      const identifier = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `${emoji} ${severityLabel} — ${alert.shipment_id}`,
-          body: `[${typeLabel}] ${alert.message}`,
-          data: { type: 'alert', alert_id: alert.id, shipment_id: alert.shipment_id },
-          sound: 'default',
-          ...(Platform.OS === 'android' && { channelId: 'greenchain-alerts' }),
-        },
-        trigger: null, // fire immediately
-      });
-
-      return identifier;
-    } catch (error) {
-      console.warn('[Notifications] sendAlertNotification failed:', error);
-      return '';
+    if (Notification.permission === 'granted') {
+      return true;
     }
+
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
   }
 
-  /**
-   * Send an immediate notification with custom title/body.
-   */
+  private emit(data: Record<string, unknown>) {
+    const payload = createNotificationPayload(data);
+    this.listeners.forEach(listener => {
+      try {
+        listener(payload);
+      } catch {
+        // Keep notifications best-effort on the web.
+      }
+    });
+  }
+
+  private async showBrowserNotification(title: string, body: string, data: Record<string, unknown>) {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return;
+    }
+
+    if (Notification.permission !== 'granted') {
+      return;
+    }
+
+    const notification = new Notification(title, { body });
+    notification.onclick = () => {
+      this.emit(data);
+      window.focus();
+    };
+  }
+
+  async sendAlertNotification(alert: AlertNotificationPayload): Promise<string> {
+    const title = `${alert.severity.toUpperCase()} · ${alert.shipment_id}`;
+    const body = `[${alert.alert_type.replace(/_/g, ' ')}] ${alert.message}`;
+    const data = { type: 'alert', alert_id: alert.id, shipment_id: alert.shipment_id };
+
+    await this.showBrowserNotification(title, body, data);
+    this.emit(data);
+    return `browser-${alert.id}`;
+  }
+
   async sendImmediateNotification(notification: {
     title: string;
     body: string;
     data?: Record<string, unknown>;
   }): Promise<string> {
-    try {
-      await this._ensureAndroidChannel();
-
-      const identifier = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: notification.title,
-          body: notification.body,
-          data: notification.data ?? {},
-          sound: 'default',
-          ...(Platform.OS === 'android' && { channelId: 'greenchain-alerts' }),
-        },
-        trigger: null,
-      });
-
-      return identifier;
-    } catch (error) {
-      console.warn('[Notifications] sendImmediateNotification failed:', error);
-      return '';
-    }
+    const data = notification.data ?? {};
+    await this.showBrowserNotification(notification.title, notification.body, data);
+    this.emit(data);
+    return `browser-${Date.now()}`;
   }
 
-  /**
-   * Cancel a scheduled notification by its identifier.
-   */
-  async cancelNotification(identifier: string): Promise<void> {
-    try {
-      await Notifications.cancelScheduledNotificationAsync(identifier);
-    } catch {}
+  async cancelNotification(): Promise<void> {
+    return;
   }
 
-  /**
-   * Cancel all scheduled notifications.
-   */
   async cancelAllNotifications(): Promise<void> {
-    try {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-    } catch {}
+    return;
   }
 
-  /**
-   * Listen for notifications received while app is in foreground.
-   */
-  addNotificationReceivedListener(listener: (notification: Notifications.Notification) => void) {
-    return Notifications.addNotificationReceivedListener(listener);
+  addNotificationReceivedListener(listener: Listener) {
+    this.listeners.add(listener);
+    return {
+      remove: () => {
+        this.listeners.delete(listener);
+      },
+    };
   }
 
-  /**
-   * Listen for user tapping a notification.
-   */
-  addNotificationResponseReceivedListener(
-    listener: (response: Notifications.NotificationResponse) => void,
-  ) {
-    return Notifications.addNotificationResponseReceivedListener(listener);
+  addNotificationResponseReceivedListener(listener: Listener) {
+    return this.addNotificationReceivedListener(listener);
   }
 }
 

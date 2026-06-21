@@ -18,3 +18,7 @@ tmpclaude-*
 # ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
 logs/
+
+# Frontend build output
+frontend/dist/
+frontend/web-dist/

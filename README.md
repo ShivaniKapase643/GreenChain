@@ -115,12 +115,12 @@ Settings      →  Profile, preferences, weekly report
 
 ### Backend Setup
 
-```bash
-cd backend
+cd C:\dfolders\GreenChain\GreenChain\backend
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
+python main.py
+
 
 Create `backend/.env`:
 ```env
@@ -142,23 +142,11 @@ Swagger docs: `http://localhost:8000/docs`
 
 ### Frontend Setup
 
-```bash
-cd frontend
+
+cd C:\dfolders\GreenChain\GreenChain\frontend
 npm install
-```
-
-Create `frontend/.env`:
-```env
-EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:8000
-```
-
+npm run dev
 > Use your machine's local IP (e.g. `192.168.1.x`), not `localhost` — the phone needs to reach your dev server over the network.
-
-```bash
-npx expo start          # Expo Go (QR code)
-# or
-npx expo run:android    # dev build with full native modules
-```
 
 ---
 

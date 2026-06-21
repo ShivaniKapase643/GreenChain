@@ -1,13 +1,12 @@
 {
   "name": "greenchain-frontend",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index.html",
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
-    "clean": "rm -rf .expo && expo start --clear"
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build --outDir web-dist",
+    "preview": "vite preview --outDir web-dist"
   },
   "engines": {
     "node": ">=20 <23"
@@ -51,6 +50,8 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
-    "typescript": "~5.9.2"
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "~5.9.2",
+    "vite": "^8.0.16"
   }
 }
