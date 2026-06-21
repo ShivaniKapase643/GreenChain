@@ -14,9 +14,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "types": ["node"]
+    "jsx": "react-jsx"
   },
-  "include": ["src", "hooks", "lib", "vite-env.d.ts"],
-  "exclude": ["node_modules", "app", "components", "constants", ".expo"]
+  "include": ["src", "hooks", "lib", "constants", "vite-env.d.ts"],
+  "exclude": ["node_modules", "dist"]
 }

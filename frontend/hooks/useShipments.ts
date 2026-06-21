@@ -68,8 +68,8 @@ export const useShipments = () => {
     // Set up notification listener for shipment updates
     const subscription = notificationService.addNotificationReceivedListener(notification => {
       // Handle shipment-related notifications
-      const data = notification.request.content.data;
-      if (data && data.type === 'shipment_update') {
+      const data = notification.request.content.data as Record<string, unknown> | undefined;
+      if (data && data.type === 'shipment_update' && typeof data.shipmentId === 'string') {
         refreshShipment(data.shipmentId);
       }
     });
