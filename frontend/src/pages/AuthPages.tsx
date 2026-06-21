@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { navigate } from '../router';
-import { Card, Icon } from '../components/UI';
+import { Card } from '../components/UI';
 import { PageHero } from '../components/Shell';
-import { theme } from '../theme';
+import { useToast } from '../components/Toast';
 
 const AuthLayout: React.FC<React.PropsWithChildren<{ title: string; subtitle: string; icon: string }>> = ({ title, subtitle, icon, children }) => (
   <div className="gc-auth-page">
@@ -34,19 +34,21 @@ const Input: React.FC<{
 );
 
 export const LoginPage: React.FC = () => {
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = () => {
     if (!email || !password) {
-      window.alert('Please enter both email and password.');
+      toast.warning('Please enter both email and password.', 'Missing fields');
       return;
     }
 
     setLoading(true);
     window.setTimeout(() => {
       setLoading(false);
+      toast.success('Welcome back to GreenChain.', 'Signed in');
       navigate('/');
     }, 900);
   };
@@ -56,7 +58,7 @@ export const LoginPage: React.FC = () => {
       <Input label="Email" value={email} onChange={setEmail} type="email" placeholder="Enter your email" />
       <Input label="Password" value={password} onChange={setPassword} type="password" placeholder="Enter your password" />
       <button className="gc-button gc-button--primary gc-auth-submit" onClick={handleLogin} disabled={loading}>
-        {loading ? 'Signing In...' : 'Sign In'}
+        {loading ? 'Signing In…' : 'Sign In'}
       </button>
       <div className="gc-auth-switch">
         <span>Don't have an account?</span>
@@ -67,6 +69,7 @@ export const LoginPage: React.FC = () => {
 };
 
 export const RegisterPage: React.FC = () => {
+  const toast = useToast();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -75,24 +78,24 @@ export const RegisterPage: React.FC = () => {
 
   const handleRegister = () => {
     if (!name || !email || !password || !confirmPassword) {
-      window.alert('Please fill in all fields.');
+      toast.warning('Please fill in all fields.', 'Missing fields');
       return;
     }
 
     if (password !== confirmPassword) {
-      window.alert('Passwords do not match.');
+      toast.error('Passwords do not match.', 'Check your password');
       return;
     }
 
     if (password.length < 6) {
-      window.alert('Password must be at least 6 characters.');
+      toast.error('Password must be at least 6 characters.', 'Password too short');
       return;
     }
 
     setLoading(true);
     window.setTimeout(() => {
       setLoading(false);
-      window.alert('Account created successfully!');
+      toast.success('Account created. You can sign in now.', 'All set');
       navigate('/auth/login');
     }, 900);
   };
@@ -104,7 +107,7 @@ export const RegisterPage: React.FC = () => {
       <Input label="Password" value={password} onChange={setPassword} type="password" placeholder="Create a password" />
       <Input label="Confirm Password" value={confirmPassword} onChange={setConfirmPassword} type="password" placeholder="Confirm your password" />
       <button className="gc-button gc-button--primary gc-auth-submit" onClick={handleRegister} disabled={loading}>
-        {loading ? 'Creating Account...' : 'Create Account'}
+        {loading ? 'Creating Account…' : 'Create Account'}
       </button>
       <div className="gc-auth-switch">
         <span>Already have an account?</span>

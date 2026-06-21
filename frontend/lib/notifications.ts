@@ -1,3 +1,13 @@
+/**
+ * In-process notification bus.
+ *
+ * The frontend uses an in-app Toast UI for user-facing alerts (see
+ * src/components/Toast.tsx) instead of the browser's intrusive
+ * Notification API. This service keeps the same public surface the hooks
+ * already depend on — listeners receive payloads when alerts fire — but
+ * does not trigger system-level browser notifications anymore.
+ */
+
 export interface AlertNotificationPayload {
   id: string;
   shipment_id: string;
@@ -16,65 +26,41 @@ type NotificationShape = {
 
 type Listener = (notification: NotificationShape) => void;
 
-const createNotificationPayload = (data: Record<string, unknown>): NotificationShape => ({
-  request: {
-    content: {
-      data,
-    },
-  },
+const wrap = (data: Record<string, unknown>): NotificationShape => ({
+  request: { content: { data } },
 });
 
 class NotificationService {
   private listeners = new Set<Listener>();
 
   async requestPermissions(): Promise<boolean> {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      return false;
-    }
-
-    if (Notification.permission === 'granted') {
-      return true;
-    }
-
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
+    // No-op: we use in-app toasts. Returning true keeps the existing
+    // contract used by hooks.
+    return true;
   }
 
   private emit(data: Record<string, unknown>) {
-    const payload = createNotificationPayload(data);
+    const payload = wrap(data);
     this.listeners.forEach(listener => {
       try {
         listener(payload);
       } catch {
-        // Keep notifications best-effort on the web.
+        // best-effort
       }
     });
   }
 
-  private async showBrowserNotification(title: string, body: string, data: Record<string, unknown>) {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      return;
-    }
-
-    if (Notification.permission !== 'granted') {
-      return;
-    }
-
-    const notification = new Notification(title, { body });
-    notification.onclick = () => {
-      this.emit(data);
-      window.focus();
-    };
-  }
-
   async sendAlertNotification(alert: AlertNotificationPayload): Promise<string> {
-    const title = `${alert.severity.toUpperCase()} · ${alert.shipment_id}`;
-    const body = `[${alert.alert_type.replace(/_/g, ' ')}] ${alert.message}`;
-    const data = { type: 'alert', alert_id: alert.id, shipment_id: alert.shipment_id };
-
-    await this.showBrowserNotification(title, body, data);
+    const data = {
+      type: 'alert',
+      alert_id: alert.id,
+      shipment_id: alert.shipment_id,
+      severity: alert.severity,
+      alert_type: alert.alert_type,
+      message: alert.message,
+    };
     this.emit(data);
-    return `browser-${alert.id}`;
+    return `local-${alert.id}`;
   }
 
   async sendImmediateNotification(notification: {
@@ -82,10 +68,9 @@ class NotificationService {
     body: string;
     data?: Record<string, unknown>;
   }): Promise<string> {
-    const data = notification.data ?? {};
-    await this.showBrowserNotification(notification.title, notification.body, data);
+    const data = { ...notification.data, title: notification.title, body: notification.body };
     this.emit(data);
-    return `browser-${Date.now()}`;
+    return `local-${Date.now()}`;
   }
 
   async cancelNotification(): Promise<void> {
