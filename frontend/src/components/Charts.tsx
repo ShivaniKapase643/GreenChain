@@ -204,13 +204,16 @@ export const DonutChart: React.FC<{
   data: DonutSlice[];
   unit?: string;
   centerLabel?: string;
-}> = ({ title, subtitle, icon = 'donut_large', data, unit = '', centerLabel = 'Total' }) => {
+  centerValue?: number;
+}> = ({ title, subtitle, icon = 'donut_large', data, unit = '', centerLabel = 'Total', centerValue }) => {
   const total = data.reduce((sum, slice) => sum + Math.max(0, slice.value), 0);
   const radius = 64;
   const stroke = 22;
   const circumference = 2 * Math.PI * radius;
   const cx = 90;
   const cy = 90;
+
+  const displayValue = typeof centerValue === 'number' ? centerValue : total;
 
   let cumulative = 0;
   const segments = data
@@ -255,7 +258,7 @@ export const DonutChart: React.FC<{
               </circle>
             )) : null}
             <text x={cx} y={cy - 4} textAnchor="middle" className="gc-donut__total">
-              {total.toFixed(total > 100 ? 0 : 1)}
+              {displayValue.toFixed(displayValue > 100 ? 0 : 1)}
             </text>
             <text x={cx} y={cy + 18} textAnchor="middle" className="gc-donut__total-label">
               {unit ? `${unit} · ${centerLabel}` : centerLabel}

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useShipments } from '../../hooks/useShipments';
 import { apiService } from '../../lib/api';
 import { GreenScoreBadge } from '../components/Cards';
-import { GaugeCard, LineChartCard } from '../components/Charts';
+import { DonutChart, LineChartCard, type DonutSlice } from '../components/Charts';
 import { RouteCompareModal, type RouteAlternative } from '../components/Modal';
 import { Card, EmptyState, Icon, SectionTitle } from '../components/UI';
 import { PageHero } from '../components/Shell';
@@ -75,6 +75,22 @@ export const ShipmentPage: React.FC<{ shipmentId: string }> = ({ shipmentId }) =
     if (!shipment) return 0;
     if (!shipment.distance_covered_km || !shipment.total_distance_km) return 0;
     return Math.min(100, (shipment.distance_covered_km / shipment.total_distance_km) * 100);
+  }, [shipment]);
+
+  const emissionsBreakdown = useMemo<DonutSlice[]>(() => {
+    if (!shipment) return [];
+    const emitted = Math.max(0, shipment.total_co2_kg ?? 0);
+    const predictedTotal = Math.max(emitted, shipment.predicted_final_co2_kg ?? 0);
+    const projected = Math.max(0, predictedTotal - emitted);
+    // Compare against a simple baseline (India avg) so users see the savings story.
+    const baselineProjection = (shipment.total_distance_km ?? 0) * 0.9;
+    const saved = Math.max(0, baselineProjection - predictedTotal);
+
+    const slices: DonutSlice[] = [];
+    if (emitted > 0) slices.push({ label: 'Emitted so far', value: emitted, color: '#16a34a' });
+    if (projected > 0) slices.push({ label: 'Projected remaining', value: projected, color: '#f59e0b' });
+    if (saved > 0) slices.push({ label: 'Savings vs baseline', value: saved, color: '#0ea5e9' });
+    return slices;
   }, [shipment]);
 
   if (loading && !shipment) {
@@ -163,12 +179,14 @@ export const ShipmentPage: React.FC<{ shipmentId: string }> = ({ shipmentId }) =
       </Card>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16 }} className="gc-shipment-grid">
-        <GaugeCard
+        <DonutChart
           title="Predicted final emissions"
-          value={shipment.predicted_final_co2_kg ?? 0}
-          maxValue={Math.max(100, (shipment.predicted_final_co2_kg ?? 0) * 1.5)}
-          unit="kg CO₂"
-          label="ML forecast for full journey"
+          subtitle="ML forecast — emitted vs projected for the full journey"
+          icon="donut_large"
+          data={emissionsBreakdown}
+          unit="kg"
+          centerLabel="kg CO₂ projected"
+          centerValue={Math.max(shipment.total_co2_kg ?? 0, shipment.predicted_final_co2_kg ?? 0)}
         />
         <Card>
           <SectionTitle title="Green Score" subtitle="Sustainability rating for this shipment" icon="star" />
