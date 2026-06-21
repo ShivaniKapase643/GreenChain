@@ -33,7 +33,8 @@ export const LineChartCard: React.FC<{
   color?: string;
   unit?: string;
   hideHeader?: boolean;
-}> = ({ title, subtitle, data, color = theme.colors.primary, unit = '', hideHeader = false }) => {
+  action?: React.ReactNode;
+}> = ({ title, subtitle, data, color = theme.colors.primary, unit = '', hideHeader = false, action }) => {
   const values = data.map(point => point.y);
   const min = values.length ? Math.min(...values) : 0;
   const max = values.length ? Math.max(...values) : 0;
@@ -66,6 +67,7 @@ export const LineChartCard: React.FC<{
           title={title}
           subtitle={subtitle}
           icon="show_chart"
+          action={action}
         />
       )}
       <div className="gc-chart-card__canvas">

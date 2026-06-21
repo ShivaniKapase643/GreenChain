@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useShipments } from '../../hooks/useShipments';
-import { BenchmarkBars, DonutChart, type BenchmarkItem, type DonutSlice, type ChartPoint } from '../components/Charts';
-import { Card, Icon, MetricChip, SectionTitle } from '../components/UI';
+import { BenchmarkBars, DonutChart, LineChartCard, type BenchmarkItem, type DonutSlice } from '../components/Charts';
+import { Card, Icon, MetricChip } from '../components/UI';
 import { PageHero } from '../components/Shell';
 import { theme } from '../theme';
 
@@ -125,39 +125,32 @@ export const EmissionsPage: React.FC = () => {
       />
 
       {/* 2) Weekly / Monthly Trend Line Chart */}
-      <Card>
-        <SectionTitle
-          title={trendMode === 'weekly' ? 'Weekly Emissions Trend' : 'Monthly Emissions Trend'}
-          subtitle={trendMode === 'weekly' ? 'CO₂ output by day of week' : 'CO₂ output across the last 6 months'}
-          icon="show_chart"
-          action={
-            <div className="gc-trend-toggle" role="tablist" aria-label="Trend range">
-              <button
-                role="tab"
-                aria-selected={trendMode === 'weekly'}
-                className={trendMode === 'weekly' ? 'is-active' : ''}
-                onClick={() => setTrendMode('weekly')}
-              >
-                Weekly
-              </button>
-              <button
-                role="tab"
-                aria-selected={trendMode === 'monthly'}
-                className={trendMode === 'monthly' ? 'is-active' : ''}
-                onClick={() => setTrendMode('monthly')}
-              >
-                Monthly
-              </button>
-            </div>
-          }
-        />
-        <LineChartCard
-          title=""
-          data={trendData}
-          unit="kg"
-          hideHeader
-        />
-      </Card>
+      <LineChartCard
+        title={trendMode === 'weekly' ? 'Weekly Emissions Trend' : 'Monthly Emissions Trend'}
+        subtitle={trendMode === 'weekly' ? 'CO₂ output by day of week' : 'CO₂ output across the last 6 months'}
+        data={trendData}
+        unit="kg"
+        action={
+          <div className="gc-trend-toggle" role="tablist" aria-label="Trend range">
+            <button
+              role="tab"
+              aria-selected={trendMode === 'weekly'}
+              className={trendMode === 'weekly' ? 'is-active' : ''}
+              onClick={() => setTrendMode('weekly')}
+            >
+              Weekly
+            </button>
+            <button
+              role="tab"
+              aria-selected={trendMode === 'monthly'}
+              className={trendMode === 'monthly' ? 'is-active' : ''}
+              onClick={() => setTrendMode('monthly')}
+            >
+              Monthly
+            </button>
+          </div>
+        }
+      />
 
       <BenchmarkBars title="Industry Benchmarks" data={benchmarkData(totals.fleetCo2PerKm)} />
     </div>
